@@ -1,6 +1,7 @@
 import argparse
 import json
 import re
+import time
 
 import requests
 import pyquery
@@ -53,8 +54,20 @@ def search(session, fb_dtsg_ag, user, xs, token, q, cursor=None, urls = []):
 
             story = 'https://m.facebook.com/story.php?%s&%s' % (data_url[0], data_url[1])
             if story not in urls:
+                print(story)
+                text, date, watch, like, share, comment, owner_name, owner_url = get_text(story)
                 with open('story.txt', 'a') as f:
                     f.write(story+"\n")
+                    f.write(text + "\n")
+                    f.write('date ' + str(date) + "\n")
+                    f.write('watch ' + str(watch) + "\n")
+                    f.write('like ' + str(like) + "\n")
+                    f.write('share ' + str(share) + "\n")
+                    f.write('comment ' + str(comment) + "\n")
+                    f.write('owner_name ' + str(owner_name) + "\n")
+                    f.write('owner_url ' + str(owner_url) + "\n")
+                    f.write('owner_id ' + str(data_url[1]) + "\n")
+
                     f.close()
                 last_story_fbid = data_url[0]
                 id = data_url[1]
@@ -74,8 +87,50 @@ def find_value(html, key, num_sep_chars=1, separator='"'):
     return html[start_pos:end_pos]
 
 
+def get_text(url):
+    try:
+        # time.sleep(60)
+        # test
+        res = requests.get(url)
+        res_text = res.text
+        try:
+            soup = BeautifulSoup(res_text)
+        except Exception as e:
+            print(e)
+        try:
+            text = soup.find_all("div", {"class": "bx"})[0].text
+        except Exception as e:
+            text = soup.find_all("div", {"class": "bw"})[0].text
+
+        date = soup.find_all("abbr")[0].text
+        watch = find_value(res_text, 'WatchAction"', 24, separator='}')
+        like = find_value(res_text, 'LikeAction"', 24, separator='}')
+        share = find_value(res_text, 'ShareAction"', 24, separator='}')
+        comment = find_value(res_text, 'CommentAction"', 24, separator='}')
+        try:
+            owner = soup.find_all("h3", {'class': ['bt', 'bu', 'bv', 'bw']})[0]
+            owner_name = owner.text
+            try:
+
+                owner_url = owner.find_all('a', href=True)[0]['href']
+                owner_url = owner_url[:owner_url.find('&')].replace("?refid=52", "")
+            except Exception as e:
+                owner_url = '/profile.php?' + url[url.find("&id=") + 1:]
+        except Exception as e:
+            print(e)
+            owner_name = None
+            owner_url = '/profile.php?' + url[url.find("&id=") + 1:]
+
+    except Exception as e:
+        print(e)
+    return text, date, watch, like, share, comment, owner_name, owner_url
+
+
 
 if __name__ == "__main__":
+
+    # get_text('https://m.facebook.com/story.php?story_fbid=3189586617807598&id=121860194580271')
+
     email = "79309732752"
     password = "afOBEpOBEk74843"
     session = requests.session()
@@ -84,7 +139,7 @@ if __name__ == "__main__":
     })
 
     fb_dtsg, user_id, xs, token = login(session, email, password)
-    q = 'путин'
+    q = 'Пицца с грибами'
 
     search(session, fb_dtsg, user_id, xs, token, q)
     if user_id:
